@@ -463,23 +463,63 @@ multiChoice_processing <-
 # Matrix
 #===============================================================================
 matrix_processing <- 
-  function(df, value_levs=NULL, net_levs=NULL, group=NULL) {
+  function(df, value_levs_left=NULL, value_levs_right=NULL, net_levs=NULL, group=NULL) {
+    
+    if (!is.null(value_levs_right) & !is.null(net_levs)) {
+      stop(
+        "Argument value_levs_right cannot be non-null where argument net_levs is also non-null
+         - they both refer to the same thing i.e. the ordered levels of the left-hand (value side) of the matrix"
+        )
+    }
     
     # Hard-coded for now, since only one maatrix net required for AI data wand was working under time contraints!
     if (!is.null(net_levs)) {
-      df <- df %>% 
-        #select(contains(names(net_levs))) %>%
-        mutate(across(everything(),~
-          case_when(
-            .x %in% c('Very confident', 'Fairly confident')~'Confident',
-            .x %in% c('Not very confident', 'Not confident at all')~'Not confident',
-            .default='Don\'t know/NA'
-           )
-        ))
-    }
-
-    if (is.null(group)) {
+      if (is.null(group)) {
+        df <- df[grepl(paste(names(net_levs), collapse="|"), names(df))]
+      }
+      else{
+        df <- df[c(grepl(paste(names(net_levs), collapse="|"), names(df)), group)]
+      }
       
+      for (x in 1:length(names(net_levs))) {
+        for (r in names(df)[grepl(names(net_levs[x]), names(df))]) {
+          #browser()
+          if (length(net_levs[[x]])==2) {
+            df[r] <-
+              ifelse(df[[r]] %in% net_levs[[x]][[1]], names(net_levs[[x]][1]),
+              ifelse(df[[r]] %in% net_levs[[x]][[2]], names(net_levs[[x]][2]),
+              NA_character_
+              ))
+          }
+          else if (length(net_levs[[x]])==3) {
+            df[r] <-
+              ifelse(df[[r]] %in% net_levs[[x]][[1]], names(net_levs[[x]][1]),
+              ifelse(df[[r]] %in% net_levs[[x]][[2]], names(net_levs[[x]][2]),
+              ifelse(df[[r]] %in% net_levs[[x]][[3]], names(net_levs[[x]][3]),
+              NA_character_
+              )))
+          }
+          else if (length(net_levs[[x]])==4) {
+            df[r] <-
+              ifelse(df[[r]] %in% net_levs[[x]][[1]], names(net_levs[[x]][1]),
+              ifelse(df[[r]] %in% net_levs[[x]][[2]], names(net_levs[[x]][2]),
+              ifelse(df[[r]] %in% net_levs[[x]][[3]], names(net_levs[[x]][3]),
+              ifelse(df[[r]] %in% net_levs[[x]][[4]], names(net_levs[[x]][4]),
+              NA_character_
+              ))))
+          }
+          else {
+            stop(
+              "Function can currently only take a maximum of 4 net categories (plus NAs) -
+              either amend function to allow for more nets, or amend netting"
+            )
+            
+          }
+        }
+      }
+    }
+            
+    if (is.null(group)) {
       #browser()
       df_summary_list <- lapply(
         unique(sub(".*:", "", names(df))), function(q) {
@@ -509,18 +549,51 @@ matrix_processing <-
             mutate(survey_question_short = {{q}}) %>%
             mutate(survey_question_long = {{q_long}})
           
-          # Order by question (response or net) levels via conversion to factor
-          if (!is.null(value_levs)) {
-            levs <- value_levs[[parse_number(q)]]
-            tempdf <- tempdf %>%
-              mutate(value = factor(value, levels=levs, ordered=T)) %>%
-              arrange(response, value)
+          # Order by question (response and/or net) levels via conversion to factor
+          if (is.null(net_levs)) {
+            if (!is.null(value_levs_left)&!is.null(value_levs_right)) {
+              levs_left <- value_levs_left[[parse_number(q)]]
+              levs_right <- value_levs_right[[parse_number(q)]]
+              tempdf_temp <- tempdf %>%
+                mutate(response = factor(response, levels=levs_left, ordered=T)) %>%
+                mutate(value = factor(value, levels=c(levs_right, 'Not answered'), ordered=T)) %>%
+                arrange(response, value)
+            }
+            else if (!is.null(value_levs_left)&is.null(value_levs_right)) {
+              levs_left <- value_levs_left[[parse_number(q)]]
+              tempdf <- tempdf %>%
+                mutate(response = factor(response, levels=levs_left, ordered=T)) %>%
+                arrange(response)
+            }
+            else if (is.null(value_levs_left)&!is.null(value_levs_right)) {
+              levs_right <- value_levs_right[[parse_number(q)]]
+              tempdf <- tempdf %>%
+                mutate(value = factor(value, levels=c(levs_right, 'Not answered'), ordered=T)) %>%
+                arrange(value)
+            }
+            else {
+              tempdf <- tempdf %>%
+                arrange(response, value)
+            }
           }
+          
+          # Order additionally by nets if non-null
           if (!is.null(net_levs)) {
-            levs <- names(net_levs[[parse_number(q)]])
+            #browser()
+            levs_net <- names(net_levs[[parse_number(q)]])
+            if (!is.null(value_levs_left)) {
+              levs_left <- value_levs_left[[parse_number(q)]]
+              #browser()
+              tempdf2 <- tempdf %>% 
+                mutate(response = factor(response, levels=levs_left, ordered=T)) %>%
+                mutate(value = factor(value, levels=c(levs_net,'Not answered'), ordered=T)) %>%
+                arrange(response, value)
+            }
+            else {
             tempdf <- tempdf %>% 
-              mutate(value = factor(value, levels=levs, ordered=T)) %>%
-              arrange(response, value)
+              mutate(value = factor(value, levels=c(levs_net,'Not answered'), ordered=T)) %>%
+              arrange(value)
+            }
           }
            
           return(tempdf)
@@ -677,7 +750,6 @@ exportToExcel <-
     addWorksheet(wb, sheetName=sheet_name, tabColour = tab_colour)
     `%ni%` <- Negate(`%in%`)
     
-
     # Non-grouped output
     if (grouped==F) {
       row_num <- 1-nrow(df_list[[1]])-3
@@ -964,6 +1036,32 @@ exportToExcel <-
       
     }
   }
+
+
+# Export to Excel (ordered by question)
+#===============================================================================
+
+exportToExcel2 <- 
+  function(svy_question, wb) {
+    
+    
+    `%ni%` <- Negate(`%in%`)
+    svy_question_short <-  names(svy_question)[1]
+    svy_question_long <- svy_question[[1]]
+    
+    addWorksheet(wb, sheetName=svy_question_short)
+    
+    
+
+    
+    
+    
+    
+  }
+
+
+
+
     
 
     
