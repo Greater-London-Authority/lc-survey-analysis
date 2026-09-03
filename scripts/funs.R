@@ -4,6 +4,9 @@
 singleCode_processing <- 
   function(df, value_levs=NULL, net_levs=NULL, group=NULL, net_levs_group=NULL, group_levs=NULL) {
     
+    
+
+  
     if (!is.null(net_levs)) {
       if (is.null(group)) {
         df <- df[names(net_levs)]
@@ -181,85 +184,92 @@ singleCode_processing <-
       df_summary_list <- lapply(
         names(df)[names(df)!=group], function(q) {
           q_long <-  SURVEY_QUESTIONS[q]
-          tempdf <- df %>%
-            dplyr::select(
-              "response"=all_of(q),
-              "group"=all_of(group),
-            ) %>%
-            mutate(response = as.character(response)) %>%
-            mutate(group = as.character(group)) %>%
-            dplyr::group_by(response, group) %>%
-            dplyr::summarise(response_count=n()) %>%
-            # sample N as denominator
-            dplyr::ungroup() %>%
-            dplyr::mutate(response_N = sum(response_count, na.rm=T)) %>%
-            dplyr::mutate(response_perc = response_count/response_N) %>%
-            # group N as denominator
-            group_by(group) %>%
-            dplyr::mutate(grouped_response_N = sum(response_count, na.rm=T)) %>%
-            dplyr::mutate(grouped_response_perc = response_count/grouped_response_N) %>%
-            dplyr::mutate(survey_question_short ={{q}}) %>%
-            dplyr::mutate(survey_question_long = {{q_long}}) %>%
-            mutate(survey_question_group ={{group}}) 
-          
-          # Rebased summary for routed questions (which are distinguishable by presence of NA values)
-          if (NA %in% unique(tempdf$response)==T) {
-            tempdf_rtd <- df %>%
+          if (group!=q) {
+            tempdf <- df %>%
               dplyr::select(
                 "response"=all_of(q),
-                "group"=all_of(group)
+                "group"=all_of(group),
               ) %>%
               mutate(response = as.character(response)) %>%
               mutate(group = as.character(group)) %>%
-              filter(!is.na(response)) %>%
               dplyr::group_by(response, group) %>%
-              dplyr::summarise(rtd_response_count=as.double(n())) %>%
+              dplyr::summarise(response_count=n()) %>%
               # sample N as denominator
               dplyr::ungroup() %>%
-              dplyr::mutate(rtd_response_N = sum(rtd_response_count, na.rm=T)) %>%
-              dplyr::mutate(rtd_response_perc = rtd_response_count/rtd_response_N) %>%
+              dplyr::mutate(response_N = sum(response_count, na.rm=T)) %>%
+              dplyr::mutate(response_perc = response_count/response_N) %>%
               # group N as denominator
               group_by(group) %>%
-              dplyr::mutate(rtd_grouped_response_N = sum(rtd_response_count, na.rm=T)) %>%
-              dplyr::mutate(rtd_grouped_response_perc = rtd_response_count/rtd_grouped_response_N) 
+              dplyr::mutate(grouped_response_N = sum(response_count, na.rm=T)) %>%
+              dplyr::mutate(grouped_response_perc = response_count/grouped_response_N) %>%
+              dplyr::mutate(survey_question_short ={{q}}) %>%
+              dplyr::mutate(survey_question_long = {{q_long}}) %>%
+              mutate(survey_question_group ={{group}}) 
             
-            
-            tempdf <- left_join(tempdf, tempdf_rtd) %>%
-              relocate(all_of(contains('survey_question')), .after = last_col()) %>%
-              mutate(response = case_when(is.na(response)~'Not answered', .default=response)) %>%
-              arrange(group)
-          } 
-          # Order by question (response or net) levels via conversion to factor
-          if (!is.null(value_levs)) {
-            levs <- value_levs[[parse_number(q)]]
-            if ('Not answered' %in% unique(tempdf$response)==T) {
-              levs <- c(levs, 'Not answered')
+            # Rebased summary for routed questions (which are distinguishable by presence of NA values)
+            if (NA %in% unique(tempdf$response)==T) {
+              tempdf_rtd <- df %>%
+                dplyr::select(
+                  "response"=all_of(q),
+                  "group"=all_of(group)
+                ) %>%
+                mutate(response = as.character(response)) %>%
+                mutate(group = as.character(group)) %>%
+                filter(!is.na(response)) %>%
+                dplyr::group_by(response, group) %>%
+                dplyr::summarise(rtd_response_count=as.double(n())) %>%
+                # sample N as denominator
+                dplyr::ungroup() %>%
+                dplyr::mutate(rtd_response_N = sum(rtd_response_count, na.rm=T)) %>%
+                dplyr::mutate(rtd_response_perc = rtd_response_count/rtd_response_N) %>%
+                # group N as denominator
+                group_by(group) %>%
+                dplyr::mutate(rtd_grouped_response_N = sum(rtd_response_count, na.rm=T)) %>%
+                dplyr::mutate(rtd_grouped_response_perc = rtd_response_count/rtd_grouped_response_N) 
+              
+              
+              tempdf <- left_join(tempdf, tempdf_rtd) %>%
+                relocate(all_of(contains('survey_question')), .after = last_col()) %>%
+                mutate(response = case_when(is.na(response)~'Not answered', .default=response)) %>%
+                arrange(group)
+            } 
+            # Order by question (response or net) levels via conversion to factor
+            if (!is.null(value_levs)) {
+              levs <- value_levs[[parse_number(q)]]
+              if ('Not answered' %in% unique(tempdf$response)==T) {
+                levs <- c(levs, 'Not answered')
+              }
+              tempdf <- tempdf %>% 
+                mutate(response = factor(response, levels=levs, ordered=T)) %>%
+                arrange(group, response)
             }
-            tempdf <- tempdf %>% 
-              mutate(response = factor(response, levels=levs, ordered=T)) %>%
-              arrange(group, response)
-          }
-          if (!is.null(net_levs)) {
-            levs <- names(net_levs[[q]])
-            if ('Not answered' %in% unique(tempdf$response)==T) {
-              levs <- c(levs, 'Not answered')
+            if (!is.null(net_levs)) {
+              levs <- names(net_levs[[q]])
+              if ('Not answered' %in% unique(tempdf$response)==T) {
+                levs <- c(levs, 'Not answered')
+              }
+              tempdf <- tempdf %>% 
+                mutate(response = factor(response, levels=levs, ordered=T)) %>%
+                arrange
             }
-            tempdf <- tempdf %>% 
-              mutate(response = factor(response, levels=levs, ordered=T)) %>%
-              arrange
-          }
-          if (!is.null(group_levs)) {
-            levs <- group_levs[[group]]
-            if (NA_character_ %in% unique(tempdf$group)) {
-              tempdf$group <- ifelse(is.na(tempdf$group), 'NA', tempdf$group)
-              levs <- c(levs, 'NA')
+            if (!is.null(group_levs)) {
+              levs <- group_levs[[group]]
+              if (NA_character_ %in% unique(tempdf$group)) {
+                tempdf$group <- ifelse(is.na(tempdf$group), 'NA', tempdf$group)
+                levs <- c(levs, 'NA')
+              }
+              tempdf <- tempdf %>% 
+                mutate(group = factor(group, levels=levs, ordered=T)) %>%
+                arrange(group, response)
             }
-            tempdf <- tempdf %>% 
-              mutate(group = factor(group, levels=levs, ordered=T)) %>%
-              arrange(group, response)
+          return(tempdf)
           }
           
-          return(tempdf)
+          else {
+            print(paste0("Grouping column - ",group," - is same as survey question: no output has been generated for this question-group combination"))
+          }
+          
+
         }
       )
     }
@@ -330,6 +340,7 @@ multiChoice_processing <-
       df_summary_list <- lapply(
         unique(sub(".*:", "", names(df))), function(q) {
           q_long <-  SURVEY_QUESTIONS[grepl(q, names(SURVEY_QUESTIONS))]
+          #browser()
           tempdf <- df %>%
             select(ends_with(sub(".*__", "", {{q}}))) %>%
             mutate(not_routed = case_when(rowSums(is.na(.))-ncol(.)==0~'Not answered', .default=NA_character_)) %>%
@@ -554,7 +565,7 @@ matrix_processing <-
             if (!is.null(value_levs_left)&!is.null(value_levs_right)) {
               levs_left <- value_levs_left[[parse_number(q)]]
               levs_right <- value_levs_right[[parse_number(q)]]
-              tempdf_temp <- tempdf %>%
+              tempdf <- tempdf %>%
                 mutate(response = factor(response, levels=levs_left, ordered=T)) %>%
                 mutate(value = factor(value, levels=c(levs_right, 'Not answered'), ordered=T)) %>%
                 arrange(response, value)
@@ -584,7 +595,7 @@ matrix_processing <-
             if (!is.null(value_levs_left)) {
               levs_left <- value_levs_left[[parse_number(q)]]
               #browser()
-              tempdf2 <- tempdf %>% 
+              tempdf <- tempdf %>% 
                 mutate(response = factor(response, levels=levs_left, ordered=T)) %>%
                 mutate(value = factor(value, levels=c(levs_net,'Not answered'), ordered=T)) %>%
                 arrange(response, value)
@@ -595,7 +606,10 @@ matrix_processing <-
               arrange(value)
             }
           }
-           
+          
+          if (q==3) {
+            browser()
+          } 
           return(tempdf)
         }
       )
@@ -741,275 +755,189 @@ demographics_processing <- function(df, group_vars=NULL, net_levs=NULL) {
 
 
 # Export to Excel
-#===============================================================================
+################################################################################
 
 exportToExcel <- 
-  function(df_list, sheet_name, grouped=FALSE, tab_colour=NULL, publication_ready=NULL) {
+  function(df_list, sheet_name, grouped=FALSE, tab_colour=NULL, order='structure', publication_ready=NULL) {
     
-    # Add worksheet
-    addWorksheet(wb, sheetName=sheet_name, tabColour = tab_colour)
-    `%ni%` <- Negate(`%in%`)
     
-    # Non-grouped output
-    if (grouped==F) {
-      row_num <- 1-nrow(df_list[[1]])-3
-      for (q in 1:length(df_list)) {
-        if (q==1) {
-          row_num <- row_num + nrow(df_list[[q]]) + 4
-          #browser()
-        }
-        else {
-          qm1 <- q-1
-          row_num <- row_num + nrow(df_list[[qm1]]) + 4
-        }
-        if (publication_ready==F) {
-          writeData(wb, sheet_name, df_list[[q]], startRow=row_num)
-        }
+    # Ordered by structure
+    #===========================================================================
+    if (order=='structure') {
+
+      # Add worksheet
+      #-------------------------------------------------------------------------
+      addWorksheet(wb, sheetName=sheet_name, tabColour = tab_colour)
+      `%ni%` <- Negate(`%in%`)
       
-        else {
-          #browser()
-          if ('rtd_response_perc' %in% names(df_list[[q]]) & 'value' %ni% names(df_list[[q]])) {
-            tempdf <- df_list[[q]] %>%
-              select(
-                'Response' = 'response',
-                'Base size (n)' = 'response_count',
-                'Percent\n(of routed sample)' = 'rtd_response_perc',
-                'Label' = 'survey_question_short'
-              ) 
-          }
-          else if ('rtd_response_perc' %in% names(df_list[[q]]) & 'value' %in% names(df_list[[q]])) {
-            tempdf <- df_list[[q]] %>%
-              select(
-                'Response' = 'response',
-                'Value' = 'value',
-                'Base size (n)' = 'response_count',
-                'Percent\n(of routed sample)' = 'rtd_response_perc',
-                'Label' = 'survey_question_short'
-              ) 
-          }
-          else if ('rtd_response_perc' %ni% names(df_list[[q]]) & 'value' %in% names(df_list[[q]])) {
-            tempdf <- df_list[[q]] %>%
-              select(
-                'Response' = 'response',
-                'Value' = 'value',
-                'Base size (n)' = 'response_count',
-                'Percent' = 'response_perc',
-                'Label' = 'survey_question_short'
-              ) 
-          }
-          else if ('prop' %in% names(df_list[[q]])) {
-            tempdf <- df_list[[q]] %>%
-              select(
-                'Response' = 'response',
-                'Base size (n)' = 'n',
-                'Percent' = 'prop',
-                'Label' = 'demog'
-              ) %>%
-              mutate(`Label` = gsub("_", " ",str_to_title(Label)))
+      # Non-grouped output
+      #-------------------------------------------------------------------------
+      if (grouped==F) {
+        
+        # Initialise counter (used to place each table below another without overlap)
+        #-----------------------------------------------------------------------
+        row_num <- 1-nrow(df_list[[1]])-3
+        for (q in 1:length(df_list)) {
+          if (q==1) {
+            row_num <- row_num + nrow(df_list[[q]]) + 4
+            #browser()
           }
           else {
-            tempdf <- df_list[[q]] %>%
-              select(
-                'Response' = 'response',
-                'Base size (n)' = 'response_count',
-                'Percent' = 'response_perc',
-                'Label' = 'survey_question_short'
-              ) 
+            qm1 <- q-1
+            row_num <- row_num + nrow(df_list[[qm1]]) + 4
           }
-          writeData(wb, sheet_name, tempdf, startRow=row_num)
-          showGridLines(wb, sheet_name, showGridLines = FALSE)
-          if ('Value' %in% names(tempdf)) {
-            setColWidths(wb, sheet_name, cols = c(1:5), widths = c(30, 25, 20, 20, 26))
-          }
-          else {
-            setColWidths(wb, sheet_name, cols = c(1:4), widths = c(30, 20, 20, 25))
-          }
-          headerStyle <- createStyle(
-            fontColour = "#ffffff", fontSize='12', halign = "center", valign = "center",
-            fgFill = "#007acc", border = "TopBottom", borderColour = "#007acc",  wrapText = TRUE,
-            textDecoration = "Bold"
-          )
-          addStyle(wb, sheet = sheet_name, headerStyle, rows = row_num, cols = 1:ncol(tempdf), gridExpand = TRUE)
-          bodyStyle <- createStyle(halign = "center", valign = "center", wrapText = TRUE)
-          bodyPercStyle <- createStyle(numFmt="0%", halign = "center", valign = "center", wrapText = TRUE)
-          bodyStart <- row_num+1
-          bodyEnd <- row_num + nrow(tempdf)
-          if ('Value' %in% names(tempdf)) {
-            addStyle(wb, sheet = sheet_name, bodyStyle, rows = bodyStart:bodyEnd, cols = c(1:3,5), gridExpand = TRUE)
-            addStyle(wb, sheet = sheet_name, bodyPercStyle, rows = bodyStart:bodyEnd, cols = 4, gridExpand = TRUE)
-          }
-          else {
-            addStyle(wb, sheet = sheet_name, bodyStyle, rows = bodyStart:bodyEnd, cols = c(1:2,4), gridExpand = TRUE)
-            addStyle(wb, sheet = sheet_name, bodyPercStyle, rows = bodyStart:bodyEnd, cols = 3, gridExpand = TRUE)
-          }
-          maxResponseLength <- max(nchar(as.character(tempdf$Response)))
-          if (maxResponseLength <= 30) {
-            height <- 20
-          }
-          else if (between(maxResponseLength, 30, 50 )) {
-            height <- 30
-          }
-          else if (between(maxResponseLength, 50, 70)) {
-            height <- 35
-          }
-          else {
-            height <- 45
-          }
-          setRowHeights(wb, sheet_name, rows = row_num:bodyEnd, heights = c(35, rep(height, length(bodyStart:bodyEnd))))
-        }
-      }
-    }
-      
-    # Grouped output
-    else {
-      group_row_num <- 1
-      max_length_group <- 0
-      for (d in 1:length(df_list)) {
-        if (length(unique(df_list[[d]][[1]]$group))>max_length_group) {
-          max_length_group <- length(unique(df_list[[d]][[1]]$group))
-        }
-        for (q in 1:length(df_list[[d]])) {
           
+          # Raw export 
+          #-----------------------------------------------------------------------
           if (publication_ready==F) {
-            if (d==1&q==1) {
-              group_row_num <- group_row_num
-            }
-            else if (q==1) {
-              dm1 <- d-1
-              qm1 <- length(df_list[[dm1]])
-              group_row_num <- group_row_num + nrow(df_list[[dm1]][[qm1]]) + 3
-            }
-            else {
-              browser()
-              qm1 <- q-1
-              group_row_num <- group_row_num + nrow(df_list[[d]][[qm1]]) + 3
-            }
-            writeData(wb, sheet_name, df_list[[d]][[q]], startRow=group_row_num)
+            writeData(wb, sheet_name, df_list[[q]], startRow=row_num)
           }
           
+          # Publication-ready export
+          #-----------------------------------------------------------------------
           else {
-            if ('rtd_response_perc' %in% names(df_list[[d]][[q]]) & 'value' %ni% names(df_list[[d]][[q]])) {
-              tempdf_perc <- df_list[[d]][[q]] %>%
+            
+            #  Table for SC-routed-nongrouped frequencies
+            #________________________________________________________
+            if ('rtd_response_perc' %in% names(df_list[[q]]) & 'value' %ni% names(df_list[[q]])) {
+              tempdf <- df_list[[q]] %>%
                 select(
                   'Response' = 'response',
-                  'Group' = 'group',
-                  'Percent' = 'rtd_grouped_response_perc',
-                  'Question label' = 'survey_question_short',
-                  'Group label' = 'survey_question_group'
-                ) %>%
-                pivot_wider(
-                  id_cols=c('Response', 'Question label', 'Group label'),
-                  names_from='Group',
-                  values_from='Percent'
-                ) %>%
-                relocate(c('Question label', 'Group label'), .after = last_col()) %>%
-                mutate(across(-c('Response', 'Question label', 'Group label'),~case_when(is.na(.x)~0, .default=.x)))
-              tempdf_base <- df_list[[d]][[q]] %>%
-                pivot_wider(
-                  id_cols='response',
-                  names_from='group',
-                  values_from='rtd_grouped_response_N'
-                ) %>%
-                summarise(across(!response,~mean(.x, na.rm=T))) %>%
-                mutate(
-                  'Response'='Base size (n) - routed',
-                  'Question label'='',
-                  'Group label'=''
-                ) %>%
-                relocate(Response)
-              tempdf <- bind_rows(tempdf_perc, tempdf_base) %>%
-                filter(Response!='Not answered')
+                  'Count' = 'response_count',
+                  'Routed sample' = 'rtd_response_N',
+                  'Percent\n(of routed sample)' = 'rtd_response_perc',
+                  'Label' = 'survey_question_short'
+                )
+              # Add QA (Answered/Not answered rows)
+              # if (qa_check==T) {
+              #   N <- unique(df_list[[q]]$response_N)
+              #   answered_n <- sum(tempdf$`Base size (n)`)-tempdf$`Base size (n)`[tempdf$`Response`=='Not answered']
+              #   answered_perc <- answered_n/N
+              #   nasnwered_n <- tempdf$`Base size (n)`[tempdf$`Response`=='Not answered']
+              #   nanswered_perc <- nanswered_n/N
+              #   qa_df <- tibble(
+              #     'Response'= c('QA: Answered', 'QA: Not answered'),
+              #     'Base size (n)' = c(answered_n, nanswered_n),
+              #     'Percent\n(of routed sample)' = c(answered_perc, nanswered_perc),
+              #     'Label' = rep(unique(tempdf$Label),2)
+              #   )
+              #   tempdf <- bind_rows(tempdf, qa_df)
+              # }
             }
-            # else if ('rtd_response_perc' %in% names(df_list[[q]]) & 'value' %in% names(df_list[[q]])) {
-            #   tempdf <- df_list[[q]] %>%
-            #     select(
-            #       'Response' = 'response',
-            #       'Value' = 'value',
-            #       'Base size' = 'response_count',
-            #       'Percent\n(of routed sample)' = 'rtd_response_perc',
-            #       'Label' = 'survey_question_short'
-            #     ) 
-            # }
-            # else if ('rtd_response_perc' %ni% names(df_list[[q]]) & 'value' %in% names(df_list[[q]])) {
-            #   tempdf <- df_list[[q]] %>%
-            #     select(
-            #       'Response' = 'response',
-            #       'Value' = 'value',
-            #       'Base size' = 'response_count',
-            #       'Percent' = 'response_perc',
-            #       'Label' = 'survey_question_short'
-            #     ) 
-            # }
-            else {
-              tempdf_perc <- df_list[[d]][[q]] %>%
+            
+            # Table for routed non-grouped matrix
+            #_______________________________
+            else if ('rtd_response_perc' %in% names(df_list[[q]]) & 'value' %in% names(df_list[[q]])) {
+              tempdf <- df_list[[q]] %>%
                 select(
                   'Response' = 'response',
-                  'Group' = 'group',
-                  'Percent' = 'grouped_response_perc',
-                  'Question label' = 'survey_question_short',
-                  'Group label' = 'survey_question_group'
-                ) %>%
-                pivot_wider(
-                  id_cols=c('Response', 'Question label', 'Group label'),
-                  names_from='Group',
-                  values_from='Percent'
-                ) %>%
-                relocate(c('Question label', 'Group label'), .after = last_col()) %>%
-                mutate(across(-c('Response', 'Question label', 'Group label'),~case_when(is.na(.x)~0, .default=.x)))
-              tempdf_base <- df_list[[d]][[q]] %>%
-                pivot_wider(
-                  id_cols='response',
-                  names_from='group',
-                  values_from='grouped_response_N'
-                ) %>%
-                summarise(across(!response,~mean(.x, na.rm=T))) %>%
-                mutate(
-                  'Response'='Base size (n)',
-                  'Question label'='',
-                  'Group label'=''
-                ) %>%
-                relocate(Response)
-              tempdf <- bind_rows(tempdf_perc, tempdf_base) 
+                  'Value' = 'value',
+                  'Count' = 'response_count',
+                  'Routed sample' = 'rtd_response_N',
+                  'Percent\n(of routed sample)' = 'rtd_response_perc',
+                  'Label' = 'survey_question_short'
+                ) 
             }
-            #browser()
-            if (d==1&q==1) {
-              group_row_num <- group_row_num
+            else if ('rtd_response_perc' %ni% names(df_list[[q]]) & 'value' %in% names(df_list[[q]])) {
+              #browser()
+              tempdf <- df_list[[q]] %>%
+                select(
+                  'Response' = 'response',
+                  'Value' = 'value',
+                  'Count' = 'response_count',
+                  'Percent' = 'response_perc',
+                  'Label' = 'survey_question_short'
+                ) 
             }
-            else if (q==1) {
-              dm1 <- d-1
-              qm1 <- length(df_list[[dm1]])
-              group_row_num <- group_row_num + length(unique(df_list[[dm1]][[qm1]]$response)) + 5
+            else if ('prop' %in% names(df_list[[q]])) {
+              #browser()
+              tempdf <- df_list[[q]] %>%
+                select(
+                  'Response' = 'response',
+                  'Count' = 'n',
+                  'Percent' = 'prop',
+                  'Label' = 'demog'
+                ) %>%
+                mutate(`Label` = gsub("_", " ",str_to_title(Label)))
             }
+            
+            #  Table for SC-non-routed-non-grouped frequencies
+            #________________________________________________________
             else {
-              qm1 <- q-1
-              group_row_num <- group_row_num + length(unique(df_list[[d]][[qm1]]$response)) + 5
+              #browser()
+              tempdf <- df_list[[q]] %>%
+                select(
+                  'Response' = 'response',
+                  'Count' = 'response_count',
+                  'Percent' = 'response_perc',
+                  'Label' = 'survey_question_short'
+                )
+              # Add QA (Answered/Not answered rows)
+              # if (qa_check==T) {
+              #   N <- unique(df_list[[q]]$response_N)
+              #   answered_n = sum(tempdf$`Base size (n)`)
+              #   answered_perc = answered_n/N
+              #   nanswered_n = N-sum(tempdf$`Base size (n)`)
+              #   nanswered_perc = nanswered_n/N
+              #   qa_df <- tibble(
+              #     `Response`= c('QA: Answered', 'QA: Not answered'),
+              #     `Base size (n)` = c(answered_n, nanswered_n),
+              #     `Percent` = c(answered_perc, nanswered_perc),
+              #     `Label` = rep(unique(tempdf$Label),2)
+              #   )
+              #   tempdf <- bind_rows(tempdf, qa_df)
+              # }
             }
-            writeData(wb, sheet_name, tempdf, startRow=group_row_num)
+          
+            writeData(wb, sheet_name, tempdf, startRow=row_num)
             showGridLines(wb, sheet_name, showGridLines = FALSE)
-            #browser()
-            #("openxlsx.maxWidth" = 20)
-            max_length_group_p2 <- max_length_group + 2 
-            max_length_group_p3 <- max_length_group + 3 
-            setColWidths(wb, sheet_name, cols = c(1:max_length_group_p3), widths = c(30, rep(20, max_length_group_p2 )))
-            #browser()
+            if ('Value' %in% names(tempdf)) {
+              if ('Routed sample' %in% names(tempdf)) {
+                setColWidths(wb, sheet_name, cols = c(1:6), widths = c(30, 25, 20, 20, 20, 26))
+              }
+              else {
+                setColWidths(wb, sheet_name, cols = c(1:6), widths = c(30, 25, 20, 20, 26))
+              }
+            }
+            else {
+              if ('Routed sample' %in% names(tempdf)) {
+                setColWidths(wb, sheet_name, cols = c(1:5), widths = c(30, 20, 20, 20, 25))
+              }
+              else {
+                setColWidths(wb, sheet_name, cols = c(1:4), widths = c(30, 20, 20, 25))
+              }
+            }
             headerStyle <- createStyle(
               fontColour = "#ffffff", fontSize='12', halign = "center", valign = "center",
               fgFill = "#007acc", border = "TopBottom", borderColour = "#007acc",  wrapText = TRUE,
               textDecoration = "Bold"
             )
-            addStyle(wb, sheet = sheet_name, headerStyle, rows = group_row_num, cols = 1:ncol(tempdf), gridExpand = TRUE)
+            addStyle(wb, sheet = sheet_name, headerStyle, rows = row_num, cols = 1:ncol(tempdf), gridExpand = TRUE)
             bodyStyle <- createStyle(halign = "center", valign = "center", wrapText = TRUE)
             bodyPercStyle <- createStyle(numFmt="0%", halign = "center", valign = "center", wrapText = TRUE)
-            bodyStart <- group_row_num+1
-            bodyEnd <- group_row_num + nrow(tempdf) -1
-            baseStart <- bodyEnd+1
-            bodyCols <- which(colnames(tempdf) %in% c('Response', 'Question label', 'Group label'))
-            percCols <- which(colnames(tempdf) %ni% c('Response', 'Question label', 'Group label'))
+            bodyStart <- row_num+1
+            bodyEnd <- row_num + nrow(tempdf)
+            if ('Value' %in% names(tempdf)) {
+              if ('Routed sample' %in% names(tempdf)) {
+                addStyle(wb, sheet = sheet_name, bodyStyle, rows = bodyStart:bodyEnd, cols = c(1:4,6), gridExpand = TRUE)
+                addStyle(wb, sheet = sheet_name, bodyPercStyle, rows = bodyStart:bodyEnd, cols = 5, gridExpand = TRUE)
+              }
+              else {
+                addStyle(wb, sheet = sheet_name, bodyStyle, rows = bodyStart:bodyEnd, cols = c(1:3,5), gridExpand = TRUE)
+                addStyle(wb, sheet = sheet_name, bodyPercStyle, rows = bodyStart:bodyEnd, cols = 4, gridExpand = TRUE)
+              }
+            }
+            else {
+              if ('Routed sample' %in% names(tempdf)) {
+                addStyle(wb, sheet = sheet_name, bodyStyle, rows = bodyStart:bodyEnd, cols = c(1:3,5), gridExpand = TRUE)
+                addStyle(wb, sheet = sheet_name, bodyPercStyle, rows = bodyStart:bodyEnd, cols = 4, gridExpand = TRUE)
+              }
+              else {
+                addStyle(wb, sheet = sheet_name, bodyStyle, rows = bodyStart:bodyEnd, cols = c(1:2,4), gridExpand = TRUE)
+                addStyle(wb, sheet = sheet_name, bodyPercStyle, rows = bodyStart:bodyEnd, cols = 3, gridExpand = TRUE)
+              }
+            }
             #browser()
-            addStyle(wb, sheet = sheet_name, bodyStyle, rows = bodyStart:bodyEnd, cols = bodyCols, gridExpand = TRUE)
-            addStyle(wb, sheet = sheet_name, bodyPercStyle, rows = bodyStart:bodyEnd, cols = percCols, gridExpand = TRUE)
-            baseStyle <- createStyle(fgFill = "#F2F2F2",  textDecoration = "Bold",halign = "center", valign = "center")
-            addStyle(wb, sheet = sheet_name, baseStyle, rows = baseStart, cols = 1:ncol(tempdf), gridExpand = TRUE)
             maxResponseLength <- max(nchar(as.character(tempdf$Response)))
             if (maxResponseLength <= 30) {
               height <- 20
@@ -1020,21 +948,203 @@ exportToExcel <-
             else if (between(maxResponseLength, 50, 70)) {
               height <- 35
             }
-            else {
+            else if (between(maxResponseLength, 70, 90)) {
               height <- 45
             }
-            setRowHeights(wb, sheet_name, rows = group_row_num:baseStart, heights = c(35, rep(height, length(bodyStart:bodyEnd))))
-
-            
-            
-            
-            
+            else {
+              height <- 60
+            }
+            setRowHeights(wb, sheet_name, rows = row_num:bodyEnd, heights = c(35, rep(height, length(bodyStart:bodyEnd))))
           }
         }
       }
-      
+        
+      # Grouped output
+      #-------------------------------------------------------------------------
+      else {
+        group_row_num <- 1
+        max_length_group <- 0
+        for (d in 1:length(df_list)) {
+          if (length(unique(df_list[[d]][[1]]$group))>max_length_group) {
+            max_length_group <- length(unique(df_list[[d]][[1]]$group))
+          }
+          for (q in 1:length(df_list[[d]])) {
+            
+            if (publication_ready==F) {
+              if (d==1&q==1) {
+                group_row_num <- group_row_num
+              }
+              else if (q==1) {
+                dm1 <- d-1
+                qm1 <- length(df_list[[dm1]])
+                group_row_num <- group_row_num + nrow(df_list[[dm1]][[qm1]]) + 3
+              }
+              else {
+                #browser()
+                qm1 <- q-1
+                group_row_num <- group_row_num + nrow(df_list[[d]][[qm1]]) + 3
+              }
+              writeData(wb, sheet_name, df_list[[d]][[q]], startRow=group_row_num)
+            }
+            
+            else {
+              if ('rtd_response_perc' %in% names(df_list[[d]][[q]]) & 'value' %ni% names(df_list[[d]][[q]])) {
+                tempdf_perc <- df_list[[d]][[q]] %>%
+                  select(
+                    'Response' = 'response',
+                    'Group' = 'group',
+                    'Percent' = 'rtd_grouped_response_perc',
+                    'Question label' = 'survey_question_short',
+                    'Group label' = 'survey_question_group'
+                  ) %>%
+                  pivot_wider(
+                    id_cols=c('Response', 'Question label', 'Group label'),
+                    names_from='Group',
+                    values_from='Percent'
+                  ) %>%
+                  relocate(c('Question label', 'Group label'), .after = last_col()) %>%
+                  mutate(across(-c('Response', 'Question label', 'Group label'),~case_when(is.na(.x)~0, .default=.x)))
+                #browser()
+                tempdf_base <- df_list[[d]][[q]] %>%
+                  pivot_wider(
+                    id_cols='response',
+                    names_from='group',
+                    values_from='rtd_grouped_response_N'
+                  ) %>%
+                  summarise(across(!response,~mean(.x, na.rm=T))) %>%
+                  mutate(
+                    'Response'='n-routed',
+                    'Question label'='',
+                    'Group label'=''
+                  ) %>%
+                  relocate(Response)
+                tempdf <- bind_rows(tempdf_perc, tempdf_base) %>%
+                  filter(Response!='Not answered')
+              }
+              # else if ('rtd_response_perc' %in% names(df_list[[q]]) & 'value' %in% names(df_list[[q]])) {
+              #   tempdf <- df_list[[q]] %>%
+              #     select(
+              #       'Response' = 'response',
+              #       'Value' = 'value',
+              #       'Base size' = 'response_count',
+              #       'Percent\n(of routed sample)' = 'rtd_response_perc',
+              #       'Label' = 'survey_question_short'
+              #     ) 
+              # }
+              # else if ('rtd_response_perc' %ni% names(df_list[[q]]) & 'value' %in% names(df_list[[q]])) {
+              #   tempdf <- df_list[[q]] %>%
+              #     select(
+              #       'Response' = 'response',
+              #       'Value' = 'value',
+              #       'Base size' = 'response_count',
+              #       'Percent' = 'response_perc',
+              #       'Label' = 'survey_question_short'
+              #     ) 
+              # }
+              else {
+                tempdf_perc <- df_list[[d]][[q]] %>%
+                  select(
+                    'Response' = 'response',
+                    'Group' = 'group',
+                    'Percent' = 'grouped_response_perc',
+                    'Question label' = 'survey_question_short',
+                    'Group label' = 'survey_question_group'
+                  ) %>%
+                  pivot_wider(
+                    id_cols=c('Response', 'Question label', 'Group label'),
+                    names_from='Group',
+                    values_from='Percent'
+                  ) %>%
+                  relocate(c('Question label', 'Group label'), .after = last_col()) %>%
+                  mutate(across(-c('Response', 'Question label', 'Group label'),~case_when(is.na(.x)~0, .default=.x)))
+                tempdf_base <- df_list[[d]][[q]] %>%
+                  pivot_wider(
+                    id_cols='response',
+                    names_from='group',
+                    values_from='grouped_response_N'
+                  ) %>%
+                  summarise(across(!response,~mean(.x, na.rm=T))) %>%
+                  mutate(
+                    'Response'='n',
+                    'Question label'='',
+                    'Group label'=''
+                  ) %>%
+                  relocate(Response)
+                tempdf <- bind_rows(tempdf_perc, tempdf_base) 
+              }
+              #browser()
+              if (d==1&q==1) {
+                group_row_num <- group_row_num
+              }
+              else if (q==1) {
+                dm1 <- d-1
+                qm1 <- length(df_list[[dm1]])
+                group_row_num <- group_row_num + length(unique(df_list[[dm1]][[qm1]]$response)) + 5
+              }
+              else {
+                qm1 <- q-1
+                group_row_num <- group_row_num + length(unique(df_list[[d]][[qm1]]$response)) + 5
+              }
+              writeData(wb, sheet_name, tempdf, startRow=group_row_num)
+              showGridLines(wb, sheet_name, showGridLines = FALSE)
+              #browser()
+              #("openxlsx.maxWidth" = 20)
+              max_length_group_p2 <- max_length_group + 2 
+              max_length_group_p3 <- max_length_group + 3 
+              setColWidths(wb, sheet_name, cols = c(1:max_length_group_p3), widths = c(30, rep(20, max_length_group_p2 )))
+              #browser()
+              headerStyle <- createStyle(
+                fontColour = "#ffffff", fontSize='12', halign = "center", valign = "center",
+                fgFill = "#007acc", border = "TopBottom", borderColour = "#007acc",  wrapText = TRUE,
+                textDecoration = "Bold"
+              )
+              addStyle(wb, sheet = sheet_name, headerStyle, rows = group_row_num, cols = 1:ncol(tempdf), gridExpand = TRUE)
+              bodyStyle <- createStyle(halign = "center", valign = "center", wrapText = TRUE)
+              bodyPercStyle <- createStyle(numFmt="0%", halign = "center", valign = "center", wrapText = TRUE)
+              bodyStart <- group_row_num+1
+              bodyEnd <- group_row_num + nrow(tempdf) -1
+              baseStart <- bodyEnd+1
+              bodyCols <- which(colnames(tempdf) %in% c('Response', 'Question label', 'Group label'))
+              percCols <- which(colnames(tempdf) %ni% c('Response', 'Question label', 'Group label'))
+              #browser()
+              addStyle(wb, sheet = sheet_name, bodyStyle, rows = bodyStart:bodyEnd, cols = bodyCols, gridExpand = TRUE)
+              addStyle(wb, sheet = sheet_name, bodyPercStyle, rows = bodyStart:bodyEnd, cols = percCols, gridExpand = TRUE)
+              baseStyle <- createStyle(fgFill = "#F2F2F2",  textDecoration = "Bold",halign = "center", valign = "center")
+              addStyle(wb, sheet = sheet_name, baseStyle, rows = baseStart, cols = 1:ncol(tempdf), gridExpand = TRUE)
+              maxResponseLength <- max(nchar(as.character(tempdf$Response)))
+              if (maxResponseLength <= 30) {
+                height <- 20
+              }
+              else if (between(maxResponseLength, 30, 50 )) {
+                height <- 30
+              }
+              else if (between(maxResponseLength, 50, 70)) {
+                height <- 35
+              }
+              else if (between(maxResponseLength, 70, 90)) {
+                height <- 45
+              }
+              else {
+                height <- 60
+              }
+              setRowHeights(wb, sheet_name, rows = group_row_num:baseStart, heights = c(35, rep(height, length(bodyStart:bodyEnd))))
+            }
+          }
+        }
+        
+        
+      }
+    }
+    
+    
+    # Ordered by survey question
+    #===========================================================================
+    
+    else {
       
     }
+    
+    
   }
 
 

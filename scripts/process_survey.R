@@ -11,7 +11,7 @@ library(tidyverse)
 library(janitor)
 `%ni%` <- Negate(`%in%`)
 data_path <- "raw_data/export-1664008_100826_1557.xlsx"
-demographics_path <- "Talk London anon profiles - matched.xlsx"
+demographics_path <- "raw_data/Talk London anon profiles - matched.xlsx"
 #business_data_path <- "raw_data/Businesses Survey Data Talk London.xlsx"
 
 raw_data <- read_xlsx(
@@ -66,9 +66,12 @@ raw_demographics_clean <- raw_demographics %>%
 
 # Merge
 match_data <- raw_data_clean %>% 
-  dplyr::left_join(raw_demographics_clean, by = join_by(uid))  
+  dplyr::left_join(raw_demographics_clean, by = join_by(uid)) #%>%
+  #select(-uid) %>%
+  #mutate(nuid = 1000+row_number())
 
 # QA to check that N for master merge is same as N for clean respondent data (both expected to be different than from demog clean)
+nrow(raw_data)
 nrow(raw_data_clean)
 nrow(raw_demographics_clean)
 nrow(match_data)
@@ -76,13 +79,13 @@ nrow(match_data)
 # Export QUAL responses
 # TODO Other please specificy qual mc1 repeated twice (awareness)
 qual_data <- match_data  %>%
-  select(uid, ends_with(paste0("...",0:1000)), starts_with('Other')) %>% # Other columns end with ...X, due to duplicate names
+  select(uid, imptec__open1, ends_with(paste0("...",0:1000)), starts_with('Other')) %>% # Other columns end with ...X, due to duplicate names
   select(!ends_with(paste0("cx",0:1000))) %>%
   select(!ends_with(paste0('...', c(27,163,235)))) %>% # Only necessary bc of presence of three other columns - otherwise comment out
   select(
-    uid, seq_len(ncol(.[!grepl('__sc', names(.))]))[seq_len(ncol(.[!grepl('__sc', names(.))]))%%2==1], contains('__sc') # Select EVEN Other columns (qual other is always after data other), and then sc other columns
+    uid, imptec__open1, seq_len(ncol(.[!grepl('__sc', names(.))]))[seq_len(ncol(.[!grepl('__sc', names(.))]))%%2==1], contains('__sc') # Select EVEN Other columns (qual other is always after data other), and then sc other columns
   )
-write.csv(qual_data, 'processed_data/qual_data-260819.csv')
+write.csv(qual_data, 'processed_data/qual_data-260827.csv')
 
 # Remove QUAL responses from main dataset
 match_data_noqual <- match_data %>%

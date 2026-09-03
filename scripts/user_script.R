@@ -60,7 +60,7 @@ SC_VALUE_LEVELS <- list(
 MAT_VALUE_LEVELS_LEFT <- list(
   c('Seeing a doctor or getting healthcare GP surgeries, hospitals, ambulances, pharmacies, dentists, mental health support', 'Getting help to stay safe and well', 'Finding or keeping a home', 'Education, childcare and support for children and young people', 'Getting around London', 'Emergency help and community safety', 'Keeping neighbourhoods clean and working well', 'Help to live healthier lives', 'Services that shape the places people live'),
   c('For the same reason', 'For different reasons'),
-  c('Seeing a doctor or getting healthcare', 'Getting help to stay safe and well', 'Finding or keeping a home', 'Education, childcare and support for children and young people', 'Getting around London', 'Emergency help and community safety', 'Keeping neighbourhoods clean and working well', 'Help to live healtheir lives', 'Services that shape the places people live'),
+  c('Seeing a doctor or getting healthcare', 'Getting help to stay safe and well', 'Finding or keeping a home', 'Education, childcare and support', 'Getting around London', 'Emergency help and community safety', 'Keeping neighbourhoods clean and working well', 'Help to live healthier lives', 'Services that shape the places people live'),
   c('Speed of support', 'Clear information', 'Feeling listened to / supported')
 )
 
@@ -79,10 +79,15 @@ CX_VALUE_LEVELS <- list(
 
 # Single choice NET levels
 SC_NET_LEVELS <- list(
+  # list(
+  #   'Very satisfied / Somewhat satisfied' = c('Very satisfied', 'Somewhat satisfied'),
+  #   'Not very satisfied / Not at all satisfied' = c('Not very satisfied', 'Not at all satisfied'), # TODO
+  #   'Don\'t know' = c('Don\'t know')
+  # ),
   list(
     'Very satisfied / Somewhat satisfied' = c('Very satisfied', 'Somewhat satisfied'),
-    'Not very satisfied / Not at all satisfied' = c('Not very satisfied', 'Not at all satisfied'),
-  'Don\'t know' = c('Don\'t know')
+    'Somewhat dissatisfied / Very dissatisfied' = c('Somewhat dissatisfied', 'Very dissatisfied'), 
+    'Don\'t know' = c('Don\'t know')
   ),
   list(
     'Strongly agree / Tend to agree' = c('Strongly agree', 'Tend to agree'),
@@ -171,11 +176,10 @@ names(DEMOG_NET_LEVELS) <- c('ethnicity', 'employment')
 
 # Grouping columns
 GROUP_VARS <- c(
-  "age_group", "gender", "ethnicity",  "employment",
+  "age_group",  "gender", "ethnicity",  "employment",
   "inner_outer_borough", "disability__sc10"
 )
 # can't group by an mc or mat variable - possible but will take a lot of work ti implement
-
 GROUP_LEVELS <- list(
   c("16-24", "25-34","35-44","45-54","55-64","65+"),
   c("Man", "Woman", "Other"),
@@ -185,6 +189,9 @@ GROUP_LEVELS <- list(
   c('Yes', 'No', 'Prefer not to say')
 )
 names(GROUP_LEVELS) <- GROUP_VARS
+
+# Date for suffix on exports (ymd)
+DATE <- 260827
 
 #'[Source files (functions)]
 source('scripts/funs.R')
@@ -207,7 +214,7 @@ df_sc_net_list <- singleCode_processing(df=df_sc, net_levs=SC_NET_LEVELS) # TODO
 # Grouped analysis (for non-netted variables)
 df_sc_group_values_list <- lapply(
   GROUP_VARS, function(group) {
-    df_sc_group <- survey_df %>% dplyr::select(ends_with(paste0('__sc', 0:1000)), group) %>% select(-names(SC_NET_LEVELS)) # TODO uncomment select bit when SC_NET_LEVELS is specificed correct
+    df_sc_group <- survey_df %>% dplyr::select(ends_with(paste0('__sc', 0:1000)), group) #%>% select(-names(SC_NET_LEVELS)) # TODO uncomment select bit when SC_NET_LEVELS is specificed correct
     singleCode_processing(df=df_sc_group, value_levs=SC_VALUE_LEVELS,  group=group, net_levs_group=DEMOG_NET_LEVELS, group_levs=GROUP_LEVELS)
   }
 )
@@ -253,107 +260,249 @@ df_mat_net_list <- matrix_processing(df=df_mat, value_levs_left=MAT_VALUE_LEVELS
 df_demog_list <- demographics_processing(survey_df, group_vars=GROUP_VARS, net_levs=DEMOG_NET_LEVELS) #DEMOG_NET_LEVELS
 
 
-# Export (non-grouped)  
+# Export - ordered by question structure
 #===============================================================================
 
-#  Detailed Export
-# wb <- createWorkbook()
-# exportToExcel(df_sc_list, sheet_name='sc_values_frequencies', grouped=FALSE, tab_colour='#0000FF', publication_ready=FALSE)
-# exportToExcel(df_sc_net_list, sheet_name='sc_net_frequencies', grouped=FALSE, tab_colour='darkblue', publication_ready=FALSE)
-# exportToExcel(df_mc_list, sheet_name='mc_frequencies', grouped=FALSE, tab_colour='red', publication_ready=FALSE)
-# exportToExcel(df_mat_list, sheet_name='mat_values_frequencies', grouped=FALSE, tab_colour='lightgreen', publication_ready=FALSE)
-# exportToExcel(df_mat_net_list, sheet_name='mat_net_frequencies', grouped=FALSE, tab_colour='darkgreen', publication_ready=FALSE)
-# exportToExcel(df_demog_list, sheet_name='demog_frequencies', grouped=FALSE, tab_colour='pink', publication_ready=FALSE)
-# saveWorkbook(wb, "processed_data/ai_data_frequencies_detail_260820.xlsx", overwrite = TRUE)
-
-
-#  Accesible Export
+# Non-grouped
+#----------------------
+ 
+# Detailed
 wb <- createWorkbook()
-exportToExcel(df_sc_list, sheet_name='sc_values_frequencies', grouped=FALSE, tab_colour='lightblue', publication_ready=TRUE)
-exportToExcel(df_sc_net_list, sheet_name='sc_net_frequencies', grouped=FALSE, tab_colour='darkblue', publication_ready=TRUE)
-exportToExcel(df_mc_list, sheet_name='mc_frequencies', grouped=FALSE, tab_colour='red', publication_ready=TRUE)
-exportToExcel(df_mat_list, sheet_name='mat_values_frequencies', grouped=FALSE, tab_colour='lightgreen', publication_ready=TRUE)
-exportToExcel(df_mat_net_list, sheet_name='mat_net_frequencies', grouped=FALSE, tab_colour='darkgreen', publication_ready=TRUE)
-exportToExcel(df_demog_list, sheet_name='demog_frequencies', grouped=FALSE, tab_colour='pink', publication_ready=TRUE)
-saveWorkbook(wb, "processed_data/lc_survey_frequencies_accessible_260820.xlsx", overwrite = TRUE)
+exportToExcel(df_sc_list, sheet_name='sc_values_frequencies', grouped=FALSE, tab_colour='#0000FF', order='structure', publication_ready=FALSE)
+exportToExcel(df_sc_net_list, sheet_name='sc_net_frequencies', grouped=FALSE, tab_colour='darkblue', order='structure', publication_ready=FALSE)
+exportToExcel(df_mc_list, sheet_name='mc_frequencies', grouped=FALSE, tab_colour='red',order='structure', publication_ready=FALSE)
+exportToExcel(df_mat_list, sheet_name='mat_values_frequencies', grouped=FALSE, tab_colour='lightgreen', order='structure', publication_ready=FALSE)
+exportToExcel(df_mat_net_list, sheet_name='mat_net_frequencies', grouped=FALSE, tab_colour='darkgreen', order='structure', publication_ready=FALSE)
+exportToExcel(df_demog_list, sheet_name='demog_frequencies', grouped=FALSE, tab_colour='pink', order='structure', publication_ready=FALSE)
+saveWorkbook(wb, paste0("processed_data/lc_survey_frequencies_detail_",DATE,".xlsx"), overwrite = TRUE)
 
-
-
-# Grouping exports
-#===============================================================================
-#  Accessible Export
+#  Accessible 
 wb <- createWorkbook()
-exportToExcel(df_sc_group_values_list, sheet_name='sc_values_frequencies', grouped=TRUE, tab_colour='lightblue', publication_ready=TRUE)
+exportToExcel(df_sc_list, sheet_name='sc_values_frequencies', grouped=FALSE, tab_colour='lightblue', order='structure', publication_ready=TRUE)
+exportToExcel(df_sc_net_list, sheet_name='sc_net_frequencies', grouped=FALSE, tab_colour='darkblue', order='structure', publication_ready=TRUE)
+exportToExcel(df_mc_list, sheet_name='mc_frequencies', grouped=FALSE, tab_colour='red', order='structure', publication_ready=TRUE)
+exportToExcel(df_mat_list, sheet_name='mat_values_frequencies', grouped=FALSE, tab_colour='lightgreen', order='structure', publication_ready=TRUE)
+exportToExcel(df_mat_net_list, sheet_name='mat_net_frequencies', grouped=FALSE, tab_colour='darkgreen', order='structure', publication_ready=TRUE)
+exportToExcel(df_demog_list, sheet_name='demog_frequencies', grouped=FALSE, tab_colour='pink', order='structure', publication_ready=TRUE)
+saveWorkbook(wb, paste0("processed_data/lc_survey_frequencies_accessible__",DATE,".xlsx"), overwrite = TRUE)
+
+# Grouped
+#----------------------
+
+# Detailed 
+wb <- createWorkbook()
+exportToExcel(df_sc_group_values_list, sheet_name='sc_values_frequencies', grouped=TRUE, tab_colour='lightblue', order='structure', publication_ready=FALSE)
+exportToExcel(df_sc_group_net_list, sheet_name='sc_net_frequencies', grouped=TRUE, tab_colour='darkblue', order='structure', publication_ready=FALSE)
+exportToExcel(df_mc_group_list, sheet_name='mc_frequencies', grouped=TRUE, tab_colour='red', order='structure', publication_ready=FALSE)
+saveWorkbook(wb, paste0("processed_data/lc_survey_grouped_frequencies_detailed__",DATE,".xlsx"), overwrite = T)
+
+#  Accessible 
+wb <- createWorkbook()
+exportToExcel(df_sc_group_values_list, sheet_name='sc_values_frequencies', grouped=TRUE, tab_colour='lightblue', order='structure', publication_ready=TRUE)
 exportToExcel(df_sc_group_net_list, sheet_name='sc_net_frequencies', grouped=TRUE, tab_colour='darkblue', publication_ready=TRUE)
-exportToExcel(df_mc_group_list, sheet_name='mc_frequencies', grouped=TRUE, tab_colour='red', publication_ready=TRUE)
-saveWorkbook(wb, "processed_data/lc_survey_grouped_frequencies_accessible_260631.xlsx", overwrite = TRUE)
+exportToExcel(df_mc_group_list, sheet_name='mc_frequencies', grouped=TRUE, tab_colour='red', order='structure', publication_ready=TRUE)
+saveWorkbook(wb, paste0("processed_data/lc_survey_grouped_frequencies_accessible__",DATE,".xlsx"), overwrite = TRUE)
 
 
 
 
+# # Export - ordered by survey question
+#===============================================================================
+
+# Detailed
+#----------------
+wb <- createWorkbook()
+exportToExcel(ls(pattern='_list'), sheet_name='sc_values_frequencies', grouped=FALSE, tab_colour='#0000FF', order='structure', publication_ready=FALSE)
 
 
+
+for (q in 1:length(df_export_list)) {
+  exportToExcel(df_export_list, sheet_name='sc_values_frequencies', grouped=FALSE, tab_colour='#0000FF', order='structure', publication_ready=FALSE)
+  
+}
 
 # 
+# 
+# exportToExcel(df_export_list, sheet_name='sc_values_frequencies', grouped=FALSE, tab_colour='#0000FF', order='structure', publication_ready=FALSE)
+# exportToExcel(df_sc_net_list, sheet_name='sc_net_frequencies', grouped=FALSE, tab_colour='darkblue', order='structure', publication_ready=FALSE)
+# exportToExcel(df_mc_list, sheet_name='mc_frequencies', grouped=FALSE, tab_colour='red',order='structure', publication_ready=FALSE)
+# exportToExcel(df_mat_list, sheet_name='mat_values_frequencies', grouped=FALSE, tab_colour='lightgreen', order='structure', publication_ready=FALSE)
+# exportToExcel(df_mat_net_list, sheet_name='mat_net_frequencies', grouped=FALSE, tab_colour='darkgreen', order='structure', publication_ready=FALSE)
+# exportToExcel(df_demog_list, sheet_name='demog_frequencies', grouped=FALSE, tab_colour='pink', order='structure', publication_ready=FALSE)
+# saveWorkbook(wb, paste0("processed_data/lc_survey_frequencies_detail_",DATE,".xlsx"), overwrite = TRUE)
+
+
+
 ###############################################################################
 
 
-wb_temp <- createWorkbook()
-# Question 1
-addWorksheet(wb_temp, sheetName=unique(df_sc_net_list[[1]]$survey_question_short))
-df_sc_list[[1]]
-writeData(wb_temp, unique(df_sc_net_list[[1]]$survey_question_short), df_sc_list[[1]], startRow=1)
-df_sc_net_list[[1]]
-writeData(wb_temp, unique(df_sc_net_list[[1]]$survey_question_short), df_sc_net_list[[1]], startRow=1+length(df_sc_list[[1]])+3)
 
-saveWorkbook(wb_temp, "processed_data/frequencies_by_question.xlsx", overwrite = TRUE)
+df_export_list <- lapply(
+  1:length(SURVEY_QUESTIONS), function(q) {
+    svyq_short <- names(SURVEY_QUESTIONS[q])
+    
+    # Find SC frequencies
+    #===========================================================================
+    if (grepl('__sc', svyq_short)==T) {
+      
+      # Basic SC
+      tempdf_sc <- bind_rows(
+        lapply(
+          df_sc_list, function(i) {
+            #browser()
+            if (grepl(svyq_short, unique(i$survey_question_short))==T) {
+              return(i)
+            }
+          }
+        )
+      )
+      
+      # Net SC
+      tempdf_sc_net <- bind_rows(
+        lapply(
+          df_sc_net_list, function(i) {
+            #browser()
+            if (grepl(svyq_short, unique(i$survey_question_short))==T) {
+              return(i)
+            }
+          }
+        )
+      )
+      
+      # Grouped non-netted SC
+      templist_sc_group_values <- lapply(
+        df_sc_group_values_list, function(i) {
+          #browser()
+          tempdf <- bind_rows(
+            lapply(
+              i, function(j) {
+                #browser()
+                if (grepl(svyq_short, unique(j$survey_question_short))==T) {
+                  return(j)
+                }
+              }
+            )
+          )
+        }
+      )
+      templist_sc_group_values <- templist_sc_group_values[lapply(templist_sc_group_values, length)>0]
 
-
-
-df_sc_group_net_list[[1]][[1]]
-df_sc_group_net_list[[2]][[1]]
-df_sc_group_net_list[[3]][[1]]
-df_sc_group_net_list[[4]][[1]]
-df_sc_group_net_list[[5]][[1]]
-df_sc_group_net_list[[6]][[1]]
-
-
-
-
-
-# SC
-SC_SURVEY_QUESTIONS <- SURVEY_QUESTIONS[grepl('__sc', names(SURVEY_QUESTIONS))]
-
-for (q in 1:length(SC_SURVEY_QUESTIONS)) {
-  
-  svyq_short <- names(SC_SURVEY_QUESTIONS[q])
-  
-  svyq_list <- list()
-  
-  # Single CHoice
-  #-----------------------------------------------------------------------------
-  # sc_list
-  if (svyq_short %in% df_sc_list[[q]]$survey_question_short) {
-    svyq_list <- list.append(svyq_list, df_sc_list[[q]])
-  }
-  # sc_net_lsit
-  if (svyq_short %in% df_sc_net_list[[q]]$survey_question_short) {
-    svyq_list <- list.append(svyq_list, df_sc_net_list[[q]])
-  }
-}
-  
-  
-  # sc_group_values_list
-  for (i in 1:length(df_sc_group_values_list[[1]])) {
-    svyq_list <- list.append(svyq_list, df_sc_net_list[[q]])
+      # Grouped netted SC
+      templist_sc_group_net <- lapply(
+        df_sc_group_values_list, function(i) {
+          tempdf <- bind_rows(
+            lapply(
+              i, function(j) {
+                if (grepl(svyq_short, unique(j$survey_question_short))==T) {
+                  return(j)
+                }
+              }
+            )
+          )
+        }
+      )
+      templist_sc_group_net <- templist_sc_group_net[lapply(templist_sc_group_net, length)>0]
+      
+      
+      return(
+        list(
+          tempdf_sc, 
+          tempdf_sc_net, 
+          lapply(templist_sc_group_values, "[", -1), 
+          lapply(templist_sc_group_net, "[", -1)
+        )
+      )
+    }
+    
+    # Find MC frequencies
+    #===========================================================================
+    if (grepl('__mc', svyq_short)==T) {
+      # Basic MC
+      tempdf_mc <- bind_rows(
+        lapply(
+          df_mc_list, function(i) {
+            #browser()
+            if (grepl(svyq_short, unique(i$survey_question_short))==T) {
+              return(i)
+            }
+          }
+        )
+      )
+      # Grouped MC
+      templist_mc_group <- lapply(
+        df_mc_group_list, function(i) {
+          tempdf <- bind_rows(
+            lapply(
+              i, function(j) {
+                if (grepl(svyq_short, unique(j$survey_question_short))==T) {
+                  return(j)
+                }
+              }
+            )
+          )
+        }
+      )
+      templist_mc_group <- templist_mc_group[lapply(templist_mc_group, length)>0]
+      
+      # Return
+      return(
+        list(
+          tempdf_mc, 
+          lapply(templist_mc_group, "[", -1)
+        )
+      )
+    } 
+    
+    # Find MAT frequencies
+    #===========================================================================
+    if (grepl('__mat', svyq_short)==T) {
+      # Basic MAT
+      tempdf_mat <- bind_rows(
+        lapply(
+          df_mat_list, function(i) {
+            #browser()
+            if (grepl(svyq_short, unique(i$survey_question_short))==T) {
+              return(i)
+            }
+          }
+        )
+      )
+      
+      # Net MAT
+      tempdf_mat_net <- bind_rows(
+        lapply(
+          df_mat_net_list, function(i) {
+            #browser()
+            if (grepl(svyq_short, unique(i$survey_question_short))==T) {
+              return(i)
+            }
+          }
+        )
+      )
+      
+      # Return
+      return(
+        list(
+          tempdf_mat, 
+          tempdf_mat_net
+        )
+      )
+      
+    }
     
   }
-  if (svyq_short %in% df_sc_group_values_list[[q]]$survey_question_short) {
-    svyq_list <- list.append(svyq_list, df_sc_net_list[[q]])
-  }
-  # sc_group_values_net_lsit
-  
-  
-  
-}
+)
+      
+# Integrate above with Excel writing functionality, and then finally into its own function
+# Add group!=q condition to mc
+# Some issue with ordering
+
+
+# Show detailed tables
+# Potentially add routed n column (ask Roz to speak with Yvette about this)
+# matrix order now correct, explain why, this was me correcting both mc and asusming mat would be same, so happens to everyone see!
+# Satisfied issue, go through that, good exmaple of how getting these wrong results in wrong outputs, as with the above on my part
+# every 1-3 months for keep for finding a home - count is zero, can try to add that in
+# Then also retsurcture by question, rathe than question type - explain importanc eof latter for QA, but former to get sense of data
+
 
