@@ -5,34 +5,37 @@
 #'[Description]#'*This script blah.*
 #'[____________________________________________________________________________]
 
-
+# Loading libraries
+# ==============================================================================
 library(readxl)
-library(tidyverse)
-library(janitor)
-`%ni%` <- Negate(`%in%`)
+library(tidyverse) # allows you to do standard data manipulation / analysis, pandas equivalent
+library(janitor) # this cleans names
+`%ni%` <- Negate(`%in%`) # reverses in for not in. allows you to use the true / false later on
+
+# loading data
+# ==============================================================================
+# change the string (excel files as per project files)
 data_path <- "raw_data/export-1664008_100826_1557.xlsx"
 demographics_path <- "raw_data/Talk London anon profiles - matched.xlsx"
 #business_data_path <- "raw_data/Businesses Survey Data Talk London.xlsx"
 
-raw_data <- read_xlsx(
-  data_path,
-  sheet = 1,
+raw_data <- readxl::read_xlsx(
+  data_path, # as per line 19 above
+  sheet = 1, #says select sheet 1
   col_names = TRUE,
   col_types = NULL,
   na = "",
   skip = 0,
-  progress = readxl_progress(),
   .name_repair = "unique"
 ) 
 
 raw_demographics <-read_xlsx(
-  demographics_path,
-  sheet = 1,
+  demographics_path, # as per line 19 above
+  sheet = 1, #says select sheet 1
   col_names = TRUE,
   col_types = NULL,
   na = "",
   skip = 0,
-  progress = readxl_progress(),
   .name_repair = "unique"
 )
 
@@ -40,6 +43,9 @@ raw_demographics <-read_xlsx(
 # 1. keeping complete cases only and;
 # 2. Removing duplicates, keeping earliest record
 # TODO Note that there are 5 cases with NA uid (these are excluded)
+# row 49 you're uploading a new dataframe which is clean. row 50 says keep columns: response ID, contact ID, drop those between the latter and URL Variable: uid
+# row 51 renames the column names (the one to the right of the = sign is the original, left is the new name)
+# row 57 says remove the uid's which are blank / NA
 raw_data_clean <- raw_data %>%
   select(-c(`Response ID`, `Contact ID`:`URL Variable: uid`)) %>%
   rename(
